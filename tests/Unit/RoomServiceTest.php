@@ -57,4 +57,17 @@ class RoomServiceTest extends TestCase
 
         $this->assertCount(0, $result);
     }
+    public function test_get_room_stats_by_hotel(): void
+{
+    $hotel = Hotel::factory()->create();
+    Room::factory()->count(3)->create([
+        'hotel_id' => $hotel->id,
+        'status'   => 'available'
+    ]);
+
+    $result = $this->service->getRoomStatsByHotel();
+
+    $this->assertNotEmpty($result);
+    $this->assertGreaterThanOrEqual(1, $result->count());
+}
 }
