@@ -80,4 +80,28 @@ protected function setUp(): void
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'client', 'guard_name' => 'web']);
 }
+public function test_hotels_can_be_filtered_by_stars(): void
+{
+    Hotel::factory()->create(['stars' => 5]);
+    Hotel::factory()->create(['stars' => 3]);
+
+    $response = $this->get(route('hotels.index', ['stars' => 5]));
+
+    $response->assertStatus(200);
+    $response->assertSee('5');
+}
+
+public function test_hotel_show_displays_rooms(): void
+{
+    $hotel = Hotel::factory()->create();
+    Room::factory()->count(2)->create([
+        'hotel_id' => $hotel->id,
+        'status'   => 'available',
+    ]);
+
+    $response = $this->get(route('hotels.show', $hotel));
+
+    $response->assertStatus(200);
+    $response->assertSee($hotel->name);
+}
 }
