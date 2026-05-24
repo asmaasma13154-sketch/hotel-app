@@ -47,4 +47,37 @@ class HotelControllerTest extends TestCase
         $response = $this->get(route('admin.dashboard'));
         $response->assertRedirect(route('login'));
     }
+    public function test_admin_can_create_hotel(): void
+{
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $response = $this->actingAs($admin)->post(route('admin.hotels.store'), [
+        'name'    => 'Hotel Test',
+        'city'    => 'Tunis',
+        'address' => '123 Rue Test',
+        'stars'   => 4,
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('hotels', ['name' => 'Hotel Test']);
+}
+
+public function test_admin_can_delete_hotel(): void
+{
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+    $hotel = Hotel::factory()->create();
+
+    $response = $this->actingAs($admin)->delete(route('admin.hotels.destroy', $hotel));
+
+    $response->assertRedirect();
+    $this->assertDatabaseMissing('hotels', ['id' => $hotel->id]);
+}
+protected function setUp(): void
+{
+    parent::setUp();
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'client', 'guard_name' => 'web']);
+}
 }

@@ -31,7 +31,6 @@ class HotelController extends Controller
         return view('hotels.show', compact('hotel', 'rooms'));
     }
 
-    // Admin uniquement
     public function create()
     {
         return view('admin.hotels.create');
@@ -50,7 +49,7 @@ class HotelController extends Controller
         ]);
 
         Hotel::create($validated);
-        return redirect()->route('admin.hotels.index')->with('success', 'Hôtel créé avec succès.');
+        return redirect()->route('hotels.index')->with('success', 'Hôtel créé avec succès.');
     }
 
     public function edit(Hotel $hotel)
@@ -68,12 +67,12 @@ class HotelController extends Controller
         ]);
 
         $hotel->update($validated);
-        return redirect()->route('admin.hotels.index')->with('success', 'Hôtel modifié.');
+        return redirect()->route('hotels.index')->with('success', 'Hôtel modifié.');
     }
 
     public function destroy(Hotel $hotel)
     {
         $hotel->delete();
-        return redirect()->route('admin.hotels.index')->with('success', 'Hôtel supprimé.');
+        return redirect()->route('hotels.index')->with('success', 'Hôtel supprimé.');
     }
 }

@@ -77,4 +77,51 @@ class ReservationServiceTest extends TestCase
         $this->assertEquals('cancelled', $reservation->fresh()->status);
         $this->assertEquals('available', $room->fresh()->status);
     }
+    public function test_get_user_reservations(): void
+{
+    $user = User::factory()->create();
+    $room = Room::factory()->create();
+    Reservation::factory()->count(3)->create([
+        'user_id' => $user->id,
+        'room_id' => $room->id,
+    ]);
+
+    $result = $this->service->getUserReservations($user->id);
+
+    $this->assertCount(3, $result);
+}
+
+public function test_get_monthly_stats(): void
+{
+    $user = User::factory()->create();
+    $room = Room::factory()->create();
+    Reservation::factory()->count(2)->create([
+        'user_id'    => $user->id,
+        'room_id'    => $room->id,
+        'check_in'   => now()->startOfMonth(),
+        'check_out'  => now()->startOfMonth()->addDays(2),
+        'total_price'=> 200,
+        'status'     => 'confirmed',
+    ]);
+
+    $stats = $this->service->getMonthlyStats();
+
+    $this->assertNotNull($stats);
+    $this->assertGreaterThanOrEqual(2, $stats->total);
+}
+
+public function test_get_most_booked_rooms(): void
+{
+    $user = User::factory()->create();
+    $room = Room::factory()->create();
+    Reservation::factory()->count(3)->create([
+        'user_id' => $user->id,
+        'room_id' => $room->id,
+    ]);
+
+    $result = $this->service->getMostBookedRooms(5);
+
+    $this->assertNotEmpty($result);
+    $this->assertGreaterThanOrEqual(1, $result->count());
+}
 }
