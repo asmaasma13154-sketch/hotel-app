@@ -7,4 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 abstract class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
+
+    protected bool $seed = false;
 }

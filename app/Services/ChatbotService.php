@@ -14,30 +14,20 @@ class ChatbotService
 
     public function __construct()
     {
-        $this->client = new Client(['timeout' => 30]);
+        $this->client = new Client([
+            'timeout' => 30,
+            'verify'  => false,
+        ]);
     }
 
-    /**
-     * Point d'entrée principal : traiter la question de l'utilisateur
-     */
     public function ask(string $userMessage, int $userId): string
     {
         try {
-            // 1. Récupérer les données métier pertinentes
             $contextData = $this->fetchRelevantData($userMessage, $userId);
-
-            // 2. Récupérer l'historique de conversation (5 derniers)
-            $history = $this->getConversationHistory($userId);
-
-            // 3. Construire le prompt intelligent
-            $prompt = $this->buildPrompt($userMessage, $contextData, $history);
-
-            // 4. Appeler l'API Gemini
-            $response = $this->callGeminiAPI($prompt);
-
-            // 5. Sauvegarder en base
+            $history     = $this->getConversationHistory($userId);
+            $prompt      = $this->buildPrompt($userMessage, $contextData, $history);
+            $response    = $this->callGeminiAPI($prompt);
             $this->saveHistory($userId, $userMessage, $response);
-
             return $response;
 
         } catch (\GuzzleHttp\Exception\ConnectException $e) {
@@ -55,29 +45,24 @@ class ChatbotService
         }
     }
 
-    /**
-     * Récupérer les données métier selon le contexte de la question
-     */
     private function fetchRelevantData(string $message, int $userId): array
     {
         $data = [];
-        $msg = strtolower($message);
+        $msg  = strtolower($message);
 
-        // Données sur les hôtels
-        if (str_contains_any($msg, ['hôtel', 'hotel', 'établissement', 'hébergement'])) {
+        if ($this->containsAny($msg, ['hôtel', 'hotel', 'établissement', 'hébergement'])) {
             $data['hotels'] = Hotel::withCount('rooms')
                 ->with(['rooms' => fn($q) => $q->where('status', 'available')])
                 ->get()
                 ->map(fn($h) => [
-                    'nom'        => $h->name,
-                    'ville'      => $h->city,
-                    'etoiles'    => $h->stars,
+                    'nom'                  => $h->name,
+                    'ville'                => $h->city,
+                    'etoiles'              => $h->stars,
                     'chambres_disponibles' => $h->rooms->where('status', 'available')->count(),
                 ])->toArray();
         }
 
-        // Données sur les chambres
-        if (str_contains_any($msg, ['chambre', 'room', 'disponible', 'prix', 'tarif', 'suite', 'double', 'simple'])) {
+        if ($this->containsAny($msg, ['chambre', 'room', 'disponible', 'prix', 'tarif', 'suite', 'double', 'simple'])) {
             $data['rooms'] = Room::with('hotel')
                 ->where('status', 'available')
                 ->get()
@@ -91,27 +76,25 @@ class ChatbotService
                 ])->toArray();
         }
 
-        // Réservations de l'utilisateur connecté
-        if (str_contains_any($msg, ['réservation', 'reservation', 'booking', 'mes', 'mon', 'ma', 'commande'])) {
+        if ($this->containsAny($msg, ['réservation', 'reservation', 'booking', 'mes', 'mon', 'ma', 'commande'])) {
             $data['my_reservations'] = Reservation::with(['room.hotel'])
                 ->where('user_id', $userId)
                 ->orderByDesc('created_at')
                 ->limit(10)
                 ->get()
                 ->map(fn($r) => [
-                    'id'         => $r->id,
-                    'hôtel'      => $r->room->hotel->name,
-                    'chambre'    => $r->room->number . ' (' . $r->room->type . ')',
-                    'check_in'   => $r->check_in->format('d/m/Y'),
-                    'check_out'  => $r->check_out->format('d/m/Y'),
-                    'nuits'      => $r->nights,
-                    'total'      => $r->total_price . '€',
-                    'statut'     => $r->status,
+                    'id'        => $r->id,
+                    'hôtel'     => $r->room->hotel->name,
+                    'chambre'   => $r->room->number . ' (' . $r->room->type . ')',
+                    'check_in'  => $r->check_in->format('d/m/Y'),
+                    'check_out' => $r->check_out->format('d/m/Y'),
+                    'nuits'     => $r->nights,
+                    'total'     => $r->total_price . '€',
+                    'statut'    => $r->status,
                 ])->toArray();
         }
 
-        // Statistiques (pour admin)
-        if (str_contains_any($msg, ['statistique', 'stat', 'chiffre', 'total', 'revenu', 'bilan', 'populaire'])) {
+        if ($this->containsAny($msg, ['statistique', 'stat', 'chiffre', 'total', 'revenu', 'bilan', 'populaire'])) {
             $data['stats'] = [
                 'total_hotels'       => Hotel::count(),
                 'total_rooms'        => Room::count(),
@@ -127,12 +110,9 @@ class ChatbotService
         return $data;
     }
 
-    /**
-     * Construire un prompt intelligent avec contexte + données + historique
-     */
     private function buildPrompt(string $userMessage, array $contextData, array $history): string
     {
-        $dataJson = json_encode($contextData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $dataJson    = json_encode($contextData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         $historyText = empty($history) ? "Aucun historique" : implode("\n", array_map(
             fn($h) => "Client: {$h['message']}\nAssistant: {$h['response']}",
             $history
@@ -163,9 +143,6 @@ RÉPONSE (en français):
 PROMPT;
     }
 
-    /**
-     * Appeler l'API Google Gemini
-     */
     private function callGeminiAPI(string $prompt): string
     {
         $apiKey = config('services.gemini.api_key');
@@ -178,7 +155,7 @@ PROMPT;
                 ],
                 'generationConfig' => [
                     'temperature'     => 0.7,
-                    'maxOutputTokens' => 512,
+                    'maxOutputTokens' => 1024,
                 ]
             ]
         ]);
@@ -208,14 +185,13 @@ PROMPT;
             'response' => $response,
         ]);
     }
-}
 
-// Helper manquant dans PHP natif
-if (!function_exists('str_contains_any')) {
-    function str_contains_any(string $haystack, array $needles): bool
+    private function containsAny(string $text, array $keywords): bool
     {
-        foreach ($needles as $needle) {
-            if (str_contains($haystack, $needle)) return true;
+        foreach ($keywords as $keyword) {
+            if (str_contains($text, $keyword)) {
+                return true;
+            }
         }
         return false;
     }
